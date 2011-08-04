@@ -32,6 +32,7 @@
         },
         Paper = function () {
             this.customAttributes = {};
+            this.groups = {};
         },
         paperproto,
         appendChild = "appendChild",
@@ -2801,9 +2802,22 @@
     paperproto.text = function (x, y, text) {
         return theText(this, x || 0, y || 0, Str(text));
     };
-    paperproto.set = function (itemsArray) {
-        arguments[length] > 1 && (itemsArray = Array[proto].splice.call(arguments, 0, arguments[length]));
-        return new Set(itemsArray);
+    paperproto.set = function (name, itemsArray) {
+        var offset = R.is(name, string) ? 1 : 0;
+        if (!offset) {
+          itemsArray = name;
+          name = null;
+        }
+        var itemsArray = (arguments[length] > offset + 1) ? Array[proto].splice.call(arguments, offset, arguments[length]) : itemsArray;
+        if (offset) {
+            if (this.groups[name] != undefined) {
+                this.groups[name].push(itemsArray);
+            } else {
+                this.groups[name] = new Set(itemsArray, name);
+            }
+          return this.groups[name];
+        }
+        return new Set(itemsArray, name);
     };
     paperproto.setSize = setSize;
     paperproto.top = paperproto.bottom = null;
@@ -3510,13 +3524,18 @@
     R.ae = animationElements;
  
     // Set
-    var Set = function (items) {
+    var Set = function (items, name) {
         this.items = [];
         this[length] = 0;
         this.type = "set";
+        this.name = name;
         if (items) {
             for (var i = 0, ii = items[length]; i < ii; i++) {
                 if (items[i] && (items[i].constructor == Element || items[i].constructor == Set)) {
+                    if (this.name) {
+                        items[i].groups = items[i].groups || [];
+                        items[i].groups.push(this.name);
+                    }
                     this[this.items[length]] = this.items[this.items[length]] = items[i];
                     this[length]++;
                 }
@@ -3529,6 +3548,10 @@
         for (var i = 0, ii = arguments[length]; i < ii; i++) {
             item = arguments[i];
             if (item && (item.constructor == Element || item.constructor == Set)) {
+                if (this.name) {
+                    item.groups = item.groups || [];
+                    item.groups.push(this.name);
+                }
                 len = this.items[length];
                 this[len] = this.items[len] = item;
                 this[length]++;
@@ -3538,7 +3561,11 @@
     };
     Set[proto].pop = function () {
         delete this[this[length]--];
-        return this.items.pop();
+        var item = this.items.pop();
+        if (this.name) {
+            item.groups.splice(item.groups.indexOf(this.name), 1);
+        }
+        return item;
     };
     for (var method in elproto) if (elproto[has](method)) {
         Set[proto][method] = (function (methodname) {
